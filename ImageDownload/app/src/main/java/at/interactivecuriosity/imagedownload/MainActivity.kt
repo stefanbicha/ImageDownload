@@ -1,7 +1,13 @@
 package at.interactivecuriosity.imagedownload
 
+import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.Message
+import android.os.Messenger
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
@@ -40,28 +46,38 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun downloadImage(urlString: String, fileName: String) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val url = URL(urlString)
-                val connection = url.openConnection()
-                connection.connect()
-                val inputStream = connection.getInputStream()
-                val file = File(getExternalFilesDir(null), fileName)
-                FileOutputStream(file).use { output ->
-                    inputStream.copyTo(output)
-                }
-                val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                runOnUiThread {
-                    imageView.setImageBitmap(bitmap)
-                    Toast.makeText(this@MainActivity, "Bild heruntergeladen", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                runOnUiThread {
-                    Toast.makeText(this@MainActivity, "Fehler beim Herunterladen", Toast.LENGTH_LONG).show()
+        runOnUiThread {
+            Toast.makeText(this@MainActivity, "Bild download gestartet", Toast.LENGTH_SHORT).show()
+        }
+
+        val handler = object : Handler(Looper.getMainLooper()) {
+            override fun handleMessage(msg: Message) {
+                val bitmapOrError = msg.obj
+
+                if(bitmapOrError is Bitmap){
+                    runOnUiThread {
+                        imageView.setImageBitmap(bitmapOrError)
+                        Toast.makeText(this@MainActivity, "Bild download beendet", Toast.LENGTH_SHORT).show()
+                    }
+                }else{
+                    runOnUiThread {
+                        Toast.makeText(this@MainActivity, "Bild download fehlgeschlagen", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
+
+        val messenger = Messenger(handler)
+
+        val intent = Intent(this@MainActivity, MyService::class.java)
+        intent.putExtra("urlString",urlString)
+        intent.putExtra("fileName",fileName)
+        intent.putExtra("messenger", messenger)
+        startService(intent)
+
+
+
+
     }
 
     private fun deleteImage(fileName: String) {
